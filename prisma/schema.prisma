@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Auth (NextAuth / Auth.js adapter schema) ────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?   // credentials auth only
+  createdAt     DateTime  @default(now())
+  accounts      Account[]
+  sessions      Session[]
+  links         Link[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Core ─────────────────────────────────────────────────────────────────────
+
+model Link {
+  id           String       @id @default(cuid())
+  slug         String       @unique
+  url          String
+  clicks       Int          @default(0)
+  expiresAt    DateTime?
+  passwordHash String?      // bcrypt hash; null = public
+  userId       String?      // null = anonymous
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  geoRules     GeoRule[]    // per-country redirect overrides
+  clickEvents  ClickEvent[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([slug])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// Geographic redirect rule: if visitor country matches → send to this url
+model GeoRule {
+  id      String @id @default(cuid())
+  linkId  String
+  link    Link   @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  country String // ISO 3166-1 alpha-2 (e.g. "PH", "US")
+  url     String
+
+  @@unique([linkId, country])
+  @@index([linkId])
+}
+
+// Per-redirect event log — enables time-series analytics, country & device breakdown
+model ClickEvent {
+  id        String   @id @default(cuid())
+  linkId    String
+  link      Link     @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  referer   String?
+  country   String?  // from x-vercel-ip-country header
+  device    String?  // desktop / mobile / tablet
+  browser   String?  // Chrome / Firefox / Safari / Edge / Other
+  os        String?  // Windows / macOS / iOS / Android / Linux / Other
+  createdAt DateTime @default(now())
+
+  @@index([linkId])
+  @@index([linkId, createdAt])
+}

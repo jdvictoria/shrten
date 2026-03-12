@@ -1,0 +1,8 @@
+# Normalize line endings to LF on checkout
+* text=auto eol=lf
+
+# Don't show lock file diffs in PRs
+package-lock.json -diff
+
+# Prisma schema syntax highlighting on GitHub
+prisma/schema.prisma linguist-language=Prisma
