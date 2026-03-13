@@ -16,5 +16,6 @@ export type CachedLink = {
   url: string;
   expiresAt: string | null; // ISO string
   hasPassword: boolean;
+  isActive: boolean;
   geoRules: Array<{ country: string; url: string }>;
 };

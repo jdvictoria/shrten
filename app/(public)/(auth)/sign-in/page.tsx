@@ -9,7 +9,7 @@ import { CredentialsForm } from "@/components/credentials-form";
 
 export default function SignInPage() {
   return (
-    <div className="min-h-[calc(100vh-3.5rem)] flex items-center justify-center px-4 py-12">
+    <div className="h-full flex items-center justify-center px-4 py-12">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Welcome back</CardTitle>

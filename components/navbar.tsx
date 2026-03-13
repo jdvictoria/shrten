@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { LayoutDashboard, Link2, LogOut } from "lucide-react";
+import { LayoutDashboard, Link2, LogOut, Users } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { auth } from "@/auth";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +25,7 @@ export async function Navbar() {
         </Link>
 
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           {session?.user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -61,6 +63,12 @@ export async function Navbar() {
                     Dashboard
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard/teams" className="cursor-pointer">
+                    <Users className="h-4 w-4" />
+                    Teams
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <form action={signOutAction} className="w-full">
@@ -76,14 +84,9 @@ export async function Navbar() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <>
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/sign-in">Sign in</Link>
-              </Button>
-              <Button size="sm" asChild>
-                <Link href="/sign-up">Sign up</Link>
-              </Button>
-            </>
+            <Button size="sm" asChild>
+              <Link href="/sign-in">Get started</Link>
+            </Button>
           )}
         </div>
       </div>

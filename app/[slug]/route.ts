@@ -22,6 +22,7 @@ export async function GET(
         url: true,
         expiresAt: true,
         passwordHash: true,
+        isActive: true,
         geoRules: { select: { country: true, url: true } },
       },
     });
@@ -35,18 +36,24 @@ export async function GET(
       url: link.url,
       expiresAt: link.expiresAt?.toISOString() ?? null,
       hasPassword: !!link.passwordHash,
+      isActive: link.isActive,
       geoRules: link.geoRules,
     };
     await redis.set(`link:${slug}`, cached, { ex: LINK_TTL });
   }
 
-  // ── 3. Expiry check ───────────────────────────────────────────────────────
+  // ── 3. Active check ───────────────────────────────────────────────────────
+  if (cached.isActive === false) {
+    return NextResponse.redirect(new URL("/not-found", request.url));
+  }
+
+  // ── 4. Expiry check ───────────────────────────────────────────────────────
   if (cached.expiresAt && new Date(cached.expiresAt) < new Date()) {
     await redis.del(`link:${slug}`); // evict stale entry
     return NextResponse.redirect(new URL("/link-expired", request.url));
   }
 
-  // ── 4. Password gate ──────────────────────────────────────────────────────
+  // ── 5. Password gate ──────────────────────────────────────────────────────
   if (cached.hasPassword) {
     const cookieStore = await cookies();
     if (!cookieStore.get(`pw_${slug}`)) {
@@ -54,7 +61,7 @@ export async function GET(
     }
   }
 
-  // ── 5. Geographic redirect ────────────────────────────────────────────────
+  // ── 6. Geographic redirect ────────────────────────────────────────────────
   let url = cached.url;
   if (cached.geoRules.length > 0) {
     const country = request.headers.get("x-vercel-ip-country"); // free on Vercel
@@ -64,7 +71,7 @@ export async function GET(
     }
   }
 
-  // ── 6. Analytics (fire-and-forget — never blocks the redirect) ────────────
+  // ── 7. Analytics (fire-and-forget — never blocks the redirect) ────────────
   const ua = request.headers.get("user-agent") ?? "";
   const { device, browser, os } = parseUA(ua);
   const country = request.headers.get("x-vercel-ip-country") ?? undefined;

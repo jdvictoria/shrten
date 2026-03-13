@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AnalyticsChart } from "@/components/analytics-chart";
+import { BreakdownPie } from "@/components/breakdown-pie";
+import { CountryMap } from "@/components/country-map";
 
 // Converts ISO country code to flag emoji
 function flag(code: string) {
@@ -169,23 +171,16 @@ export default async function LinkAnalyticsPage({
         <Card>
           <CardContent className="pt-6">
             <TabsContent value="country">
-              <BreakdownBar
-                items={topCountries.map((c) => ({
-                  name: `${flag(c.name)} ${c.name}`,
-                  count: c.count,
-                }))}
-                total={totalInPeriod}
-                label="country"
-              />
+              <CountryMap data={topCountries} />
             </TabsContent>
             <TabsContent value="device">
-              <BreakdownBar items={deviceStats} total={totalInPeriod} label="device" />
+              <BreakdownPie items={deviceStats} />
             </TabsContent>
             <TabsContent value="browser">
-              <BreakdownBar items={browserStats} total={totalInPeriod} label="browser" />
+              <BreakdownPie items={browserStats} />
             </TabsContent>
             <TabsContent value="os">
-              <BreakdownBar items={osStats} total={totalInPeriod} label="os" />
+              <BreakdownPie items={osStats} />
             </TabsContent>
             <TabsContent value="referer">
               <BreakdownBar items={topReferers} total={totalInPeriod} label="referer" />

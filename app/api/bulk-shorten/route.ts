@@ -60,6 +60,7 @@ export async function POST(request: Request) {
     url: link.url,
     expiresAt: null,
     hasPassword: false,
+    isActive: true,
     geoRules: [],
   };
   await redis.set(`link:${slug}`, cached, { ex: LINK_TTL });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,9 +37,23 @@ export function ShortenForm() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isPending, startTransition] = useTransition();
 
+  const urlInputRef = useRef<HTMLInputElement>(null);
   const appUrl = getAppUrl();
   const appDomain = appUrl.replace(/^https?:\/\//, "");
   const shortUrl = result ? `${appUrl}/${result.slug}` : "";
+
+  // ⌘K / Ctrl+K focuses the URL input
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      e.preventDefault();
+      urlInputRef.current?.focus();
+    }
+  }, []);
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
 
   // Debounced slug availability check
   useEffect(() => {
@@ -112,10 +126,15 @@ export function ShortenForm() {
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* URL input */}
           <div className="flex gap-2">
-            <div className="flex-1">
+            <div className="flex-1 relative">
               <Label htmlFor="url" className="sr-only">URL</Label>
               <Input id="url" type="url" placeholder="https://example.com/very/long/url..."
-                value={url} onChange={(e) => setUrl(e.target.value)} required disabled={isPending} />
+                ref={urlInputRef}
+                value={url} onChange={(e) => setUrl(e.target.value)} required disabled={isPending}
+                className="pr-16" />
+              <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none hidden sm:inline-flex items-center gap-0.5 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                ⌘K
+              </kbd>
             </div>
             <Button type="submit"
               disabled={isPending || slugStatus === "taken" || slugStatus === "invalid"}
@@ -192,7 +211,7 @@ export function ShortenForm() {
 
         {/* Result */}
         {result && (
-          <div className="flex items-center gap-2 p-3 bg-muted rounded-lg border">
+          <div data-testid="shorten-result" className="flex items-center gap-2 p-3 bg-muted rounded-lg border">
             <span className="flex-1 text-sm font-medium truncate">{shortUrl}</span>
             <Button size="icon" variant="ghost" onClick={handleCopy} className="shrink-0 h-8 w-8">
               {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}

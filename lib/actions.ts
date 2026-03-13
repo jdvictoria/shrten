@@ -87,6 +87,7 @@ export async function shortenUrl(
       url: link.url,
       expiresAt: link.expiresAt?.toISOString() ?? null,
       hasPassword: !!passwordHash,
+      isActive: true,
       geoRules: validGeoRules,
     };
     await redis.set(`link:${slug}`, cached, { ex: LINK_TTL });
@@ -100,15 +101,85 @@ export async function shortenUrl(
   }
 }
 
+// ─── Quick Create (dashboard) ─────────────────────────────────────────────────
+
+export async function createLink(
+  url: string,
+  customSlug?: string,
+  expiresAt?: string,
+  folderId?: string,
+  notes?: string,
+): Promise<ActionResult<{ id: string; slug: string }>> {
+  const session = await auth();
+  if (!session?.user?.id) return { success: false, error: "Not signed in" };
+
+  if (!url?.trim()) return { success: false, error: "URL is required" };
+  try { new URL(url); } catch { return { success: false, error: "Please enter a valid URL" }; }
+
+  let slug: string;
+  if (customSlug?.trim()) {
+    slug = customSlug.trim();
+    if (!SLUG_REGEX.test(slug) || slug.length < 2 || slug.length > 50)
+      return { success: false, error: "Alias: letters, numbers, - or _ (2–50 chars)" };
+    const existing = await prisma.link.findUnique({ where: { slug } });
+    if (existing) return { success: false, error: "That alias is already taken" };
+  } else {
+    slug = nanoid(7);
+  }
+
+  const expiry = expiresAt ? new Date(expiresAt) : null;
+  if (expiry && expiry <= new Date())
+    return { success: false, error: "Expiration date must be in the future" };
+
+  try {
+    const link = await prisma.link.create({
+      data: {
+        slug,
+        url: url.trim(),
+        expiresAt: expiry,
+        userId: session.user.id,
+        folderId: folderId || null,
+        notes: notes?.trim() || null,
+      },
+    });
+
+    const cached: CachedLink = {
+      id: link.id,
+      url: link.url,
+      expiresAt: link.expiresAt?.toISOString() ?? null,
+      hasPassword: false,
+      isActive: true,
+      geoRules: [],
+    };
+    await redis.set(`link:${slug}`, cached, { ex: LINK_TTL });
+    revalidatePath("/dashboard");
+
+    return { success: true, data: { id: link.id, slug: link.slug } };
+  } catch {
+    return { success: false, error: "Failed to create link. Please try again." };
+  }
+}
+
 // ─── Read ─────────────────────────────────────────────────────────────────────
 
-export async function getLinks() {
+export async function getLinks(options?: { archived?: boolean; folderId?: string; teamId?: string }) {
   const session = await auth();
   if (!session?.user?.id) return [];
 
+  const isArchived = options?.archived ?? false;
+
   return prisma.link.findMany({
-    where: { userId: session.user.id },
+    where: {
+      userId: session.user.id,
+      isArchived,
+      ...(options?.folderId ? { folderId: options.folderId } : {}),
+      ...(options?.teamId ? { teamId: options.teamId } : {}),
+    },
     orderBy: { createdAt: "desc" },
+    include: {
+      tags: { include: { tag: true } },
+      folder: true,
+    },
   });
 }
 
@@ -206,6 +277,103 @@ export async function deleteLink(id: string): Promise<ActionResult<void>> {
     return { success: true, data: undefined };
   } catch {
     return { success: false, error: "Failed to delete link" };
+  }
+}
+
+export async function editLink(
+  id: string,
+  data: {
+    url?: string;
+    notes?: string;
+    folderId?: string | null;
+    tagIds?: string[];
+    expiresAt?: string | null;
+  }
+): Promise<ActionResult<void>> {
+  const session = await auth();
+  if (!session?.user?.id) return { success: false, error: "Not authenticated" };
+
+  // ownership check
+  const link = await prisma.link.findFirst({ where: { id, userId: session.user.id } });
+  if (!link) return { success: false, error: "Link not found" };
+
+  if (data.url) {
+    try { new URL(data.url); } catch { return { success: false, error: "Invalid URL" }; }
+  }
+
+  try {
+    await prisma.link.update({
+      where: { id },
+      data: {
+        ...(data.url && { url: data.url.trim() }),
+        notes: data.notes ?? undefined,
+        folderId: data.folderId !== undefined ? data.folderId : undefined,
+        expiresAt: data.expiresAt !== undefined
+          ? (data.expiresAt ? new Date(data.expiresAt) : null)
+          : undefined,
+        ...(data.tagIds !== undefined && {
+          tags: {
+            deleteMany: {},
+            create: data.tagIds.map((tagId) => ({ tagId })),
+          },
+        }),
+      },
+    });
+    // Invalidate Redis cache if URL changed
+    if (data.url) {
+      await redis.del(`link:${link.slug}`);
+    }
+    revalidatePath("/dashboard");
+    return { success: true, data: undefined };
+  } catch {
+    return { success: false, error: "Failed to update link" };
+  }
+}
+
+export async function toggleActive(id: string): Promise<ActionResult<{ isActive: boolean }>> {
+  const session = await auth();
+  if (!session?.user?.id) return { success: false, error: "Not authenticated" };
+
+  const link = await prisma.link.findFirst({ where: { id, userId: session.user.id }, select: { isActive: true, slug: true } });
+  if (!link) return { success: false, error: "Link not found" };
+
+  const updated = await prisma.link.update({ where: { id }, data: { isActive: !link.isActive } });
+  await redis.del(`link:${link.slug}`);
+  revalidatePath("/dashboard");
+  return { success: true, data: { isActive: updated.isActive } };
+}
+
+export async function toggleArchive(id: string): Promise<ActionResult<{ isArchived: boolean }>> {
+  const session = await auth();
+  if (!session?.user?.id) return { success: false, error: "Not authenticated" };
+
+  const link = await prisma.link.findFirst({ where: { id, userId: session.user.id }, select: { isArchived: true } });
+  if (!link) return { success: false, error: "Link not found" };
+
+  const updated = await prisma.link.update({ where: { id }, data: { isArchived: !link.isArchived } });
+  revalidatePath("/dashboard");
+  return { success: true, data: { isArchived: updated.isArchived } };
+}
+
+export async function togglePin(id: string): Promise<ActionResult<{ isPinned: boolean }>> {
+  const session = await auth();
+  if (!session?.user?.id) return { success: false, error: "Not authenticated" };
+
+  try {
+    const link = await prisma.link.findFirst({
+      where: { id, userId: session.user.id },
+      select: { isPinned: true },
+    });
+    if (!link) return { success: false, error: "Link not found" };
+
+    const updated = await prisma.link.update({
+      where: { id },
+      data: { isPinned: !link.isPinned },
+    });
+    revalidatePath("/dashboard");
+    return { success: true, data: { isPinned: updated.isPinned } };
+  } catch {
+    return { success: false, error: "Failed to update link" };
   }
 }
 
