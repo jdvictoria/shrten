@@ -127,7 +127,8 @@ export function AddLinkDialog({ folders }: AddLinkDialogProps) {
                     value={customSlug}
                     onChange={(e) => dispatch({ type: "PATCH", payload: { customSlug: e.target.value } })}
                     disabled={isPending}
-                    autoComplete="off"
+                    readOnly
+                    onFocus={(e) => e.target.removeAttribute("readonly")}
                     spellCheck={false}
                   />
                   {SLUG_INDICATOR[slugStatus] && (
@@ -180,6 +181,8 @@ export function AddLinkDialog({ folders }: AddLinkDialogProps) {
                     onChange={(e) => dispatch({ type: "PATCH", payload: { password: e.target.value } })}
                     disabled={isPending}
                     className="pr-10"
+                    readOnly
+                    onFocus={(e) => e.target.removeAttribute("readonly")}
                   />
                   <button
                     type="button"
