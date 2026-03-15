@@ -8,6 +8,7 @@ import { auth } from "@/auth";
 import { prisma } from "./prisma";
 import { redis, LINK_TTL, type CachedLink } from "./redis";
 import { rateLimit } from "./rate-limit";
+import { LINKS_PAGE_SIZE } from "./utils";
 
 export type ActionResult<T> =
   | { success: true; data: T }
@@ -109,6 +110,8 @@ export async function createLink(
   expiresAt?: string,
   folderId?: string,
   notes?: string,
+  password?: string,
+  geoRules?: GeoRule[],
 ): Promise<ActionResult<{ id: string; slug: string }>> {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Not signed in" };
@@ -131,6 +134,9 @@ export async function createLink(
   if (expiry && expiry <= new Date())
     return { success: false, error: "Expiration date must be in the future" };
 
+  const passwordHash = password?.trim() ? await bcrypt.hash(password.trim(), 12) : null;
+  const validGeoRules = (geoRules ?? []).filter((r) => r.country && r.url);
+
   try {
     const link = await prisma.link.create({
       data: {
@@ -140,6 +146,8 @@ export async function createLink(
         userId: session.user.id,
         folderId: folderId || null,
         notes: notes?.trim() || null,
+        passwordHash,
+        geoRules: validGeoRules.length ? { create: validGeoRules } : undefined,
       },
     });
 
@@ -147,9 +155,9 @@ export async function createLink(
       id: link.id,
       url: link.url,
       expiresAt: link.expiresAt?.toISOString() ?? null,
-      hasPassword: false,
+      hasPassword: !!passwordHash,
       isActive: true,
-      geoRules: [],
+      geoRules: validGeoRules,
     };
     await redis.set(`link:${slug}`, cached, { ex: LINK_TTL });
     revalidatePath("/dashboard");
@@ -162,25 +170,44 @@ export async function createLink(
 
 // ─── Read ─────────────────────────────────────────────────────────────────────
 
-export async function getLinks(options?: { archived?: boolean; folderId?: string; teamId?: string }) {
+export async function getLinks(options?: {
+  archived?: boolean;
+  folderId?: string;
+  teamId?: string;
+  tagId?: string;
+  page?: number;
+  pageSize?: number;
+}) {
   const session = await auth();
-  if (!session?.user?.id) return [];
+  if (!session?.user?.id) return { links: [], total: 0 };
 
+  const page = Math.max(1, options?.page ?? 1);
+  const pageSize = options?.pageSize ?? LINKS_PAGE_SIZE;
   const isArchived = options?.archived ?? false;
 
-  return prisma.link.findMany({
-    where: {
-      userId: session.user.id,
-      isArchived,
-      ...(options?.folderId ? { folderId: options.folderId } : {}),
-      ...(options?.teamId ? { teamId: options.teamId } : {}),
-    },
-    orderBy: { createdAt: "desc" },
-    include: {
-      tags: { include: { tag: true } },
-      folder: true,
-    },
-  });
+  const where = {
+    userId: session.user.id,
+    isArchived,
+    ...(options?.folderId ? { folderId: options.folderId } : {}),
+    ...(options?.teamId ? { teamId: options.teamId } : {}),
+    ...(options?.tagId ? { tags: { some: { tag: { id: options.tagId } } } } : {}),
+  };
+
+  const [links, total] = await Promise.all([
+    prisma.link.findMany({
+      where,
+      orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      include: {
+        tags: { include: { tag: true } },
+        folder: true,
+      },
+    }),
+    prisma.link.count({ where }),
+  ]);
+
+  return { links, total };
 }
 
 export async function getStats() {

@@ -2,9 +2,15 @@
 
 import { useState, useTransition } from "react";
 import Papa from "papaparse";
-import { CheckCircle, FileUp, Loader2, X, XCircle } from "lucide-react";
+import { CheckCircle, FileUp, Loader2, Upload, X, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 
 type RowResult = {
@@ -16,6 +22,7 @@ type RowResult = {
 };
 
 export function BulkUpload() {
+  const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<RowResult[]>([]);
   const [isPending, startTransition] = useTransition();
 
@@ -62,7 +69,7 @@ export function BulkUpload() {
           updated[i] = { ...updated[i], status: "error", error: "Network error" };
         }
 
-        setRows([...updated]); // live update per row
+        setRows([...updated]);
       }
 
       const ok = updated.filter((r) => r.status === "success").length;
@@ -70,32 +77,71 @@ export function BulkUpload() {
     });
   }
 
+  function handleOpenChange(v: boolean) {
+    setOpen(v);
+    if (!v) setRows([]);
+  }
+
   const pendingCount = rows.filter((r) => r.status === "pending").length;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Bulk Import</CardTitle>
-        <CardDescription>
-          Upload a CSV file with columns: <code className="text-xs bg-muted px-1 py-0.5 rounded">url</code>,{" "}
-          <code className="text-xs bg-muted px-1 py-0.5 rounded">slug</code> (optional)
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <label>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" className="gap-1.5">
+          <Upload className="h-4 w-4" />
+          Bulk Import
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-lg bg-card text-card-foreground shadow">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Upload className="h-4 w-4" />
+            Bulk Import
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* CSV format example */}
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground">Expected format</p>
+            <div className="rounded-md border border-input overflow-hidden text-xs font-mono">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-muted border-b border-input">
+                    <th className="text-left px-3 py-1.5 font-medium text-muted-foreground">url</th>
+                    <th className="text-left px-3 py-1.5 font-medium text-muted-foreground">
+                      slug <span className="font-normal text-muted-foreground/60">(optional)</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-input">
+                    <td className="px-3 py-1.5 text-foreground">https://example.com/long-path</td>
+                    <td className="px-3 py-1.5 text-foreground">my-link</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-1.5 text-foreground">https://another.com/article</td>
+                    <td className="px-3 py-1.5 text-muted-foreground/50"></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* File picker */}
+          <label className="block">
             <input type="file" accept=".csv" className="sr-only" onChange={handleFile} />
-            <Button variant="outline" size="sm" asChild>
+            <Button className="w-full gap-2" asChild>
               <span className="cursor-pointer">
-                <FileUp className="h-4 w-4 mr-2" />
+                <FileUp className="h-4 w-4" />
                 Choose CSV
               </span>
             </Button>
           </label>
 
           {rows.length > 0 && (
-            <>
-              <span className="text-sm text-muted-foreground">{rows.length} rows</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground flex-1">{rows.length} rows loaded</span>
               <Button
                 size="sm"
                 onClick={handleUpload}
@@ -113,37 +159,37 @@ export function BulkUpload() {
               <Button size="sm" variant="ghost" onClick={() => setRows([])}>
                 <X className="h-4 w-4" />
               </Button>
-            </>
+            </div>
+          )}
+
+          {rows.length > 0 && (
+            <div className="space-y-1 max-h-56 overflow-auto rounded border p-2">
+              {rows.map((row, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm py-1">
+                  {row.status === "pending" && (
+                    <div className="h-4 w-4 rounded-full border-2 border-muted shrink-0" />
+                  )}
+                  {row.status === "success" && (
+                    <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
+                  )}
+                  {row.status === "error" && (
+                    <XCircle className="h-4 w-4 text-destructive shrink-0" />
+                  )}
+                  <span className="flex-1 truncate text-muted-foreground">{row.url}</span>
+                  {row.shortUrl && (
+                    <span className="text-primary font-medium shrink-0">
+                      /{row.shortUrl.split("/").pop()}
+                    </span>
+                  )}
+                  {row.error && (
+                    <span className="text-destructive text-xs shrink-0">{row.error}</span>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
         </div>
-
-        {rows.length > 0 && (
-          <div className="space-y-1 max-h-56 overflow-auto rounded border p-2">
-            {rows.map((row, i) => (
-              <div key={i} className="flex items-center gap-2 text-sm py-1">
-                {row.status === "pending" && (
-                  <div className="h-4 w-4 rounded-full border-2 border-muted shrink-0" />
-                )}
-                {row.status === "success" && (
-                  <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
-                )}
-                {row.status === "error" && (
-                  <XCircle className="h-4 w-4 text-destructive shrink-0" />
-                )}
-                <span className="flex-1 truncate text-muted-foreground">{row.url}</span>
-                {row.shortUrl && (
-                  <span className="text-primary font-medium shrink-0">
-                    /{row.shortUrl.split("/").pop()}
-                  </span>
-                )}
-                {row.error && (
-                  <span className="text-destructive text-xs shrink-0">{row.error}</span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -154,6 +154,9 @@ export default async function TeamPage({
               }))}
               folders={folderProps}
               tags={tagProps}
+              page={1}
+              totalPages={1}
+              total={teamLinks.length}
             />
           )}
         </TabsContent>

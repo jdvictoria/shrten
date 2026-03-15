@@ -1,7 +1,5 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import {
   Dialog,
   DialogContent,
@@ -24,103 +22,53 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  Eye,
+  EyeOff,
   Loader2,
   Plus,
   Scissors,
   X,
 } from "lucide-react";
-import { createLink } from "@/lib/actions";
-import { getAppUrl } from "@/lib/utils";
-import { toast } from "sonner";
+import { GeoRulesInput } from "@/components/geo-rules-input";
+import { useAddLinkDialog, type SlugStatus } from "@/hooks/use-add-link-dialog";
 
 type Folder = { id: string; name: string; color: string };
-type SlugStatus = "idle" | "checking" | "available" | "taken" | "invalid";
 
 interface AddLinkDialogProps {
   folders: Folder[];
 }
 
+const SLUG_INDICATOR: Record<SlugStatus, React.ReactNode> = {
+  checking: <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />,
+  available: <Check className="h-4 w-4 text-green-500" />,
+  taken:     <X className="h-4 w-4 text-destructive" />,
+  invalid:   <AlertCircle className="h-4 w-4 text-destructive" />,
+  idle:      null,
+};
+
+const SLUG_HINT: Record<SlugStatus, { text: string; cls: string } | null> = {
+  available: { text: "Available!",                            cls: "text-green-600"   },
+  taken:     { text: "Already taken",                         cls: "text-destructive" },
+  invalid:   { text: "Letters, numbers, - or _ (2–50 chars)", cls: "text-destructive" },
+  checking:  null,
+  idle:      null,
+};
+
 export function AddLinkDialog({ folders }: AddLinkDialogProps) {
-  const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const { state, dispatch, isPending, appDomain, handleSubmit } = useAddLinkDialog();
 
-  const [url, setUrl] = useState("");
-  const [customSlug, setCustomSlug] = useState("");
-  const [expiresAt, setExpiresAt] = useState("");
-  const [folderId, setFolderId] = useState("");
-  const [notes, setNotes] = useState("");
-  const [slugStatus, setSlugStatus] = useState<SlugStatus>("idle");
-  const [showAdvanced, setShowAdvanced] = useState(false);
-
-  const appUrl = getAppUrl();
-  const appDomain = appUrl.replace(/^https?:\/\//, "");
-
-  // Debounced slug check
-  useEffect(() => {
-    if (!customSlug.trim()) { setSlugStatus("idle"); return; }
-    if (!/^[a-zA-Z0-9_-]+$/.test(customSlug) || customSlug.length < 2 || customSlug.length > 50) {
-      setSlugStatus("invalid"); return;
-    }
-    setSlugStatus("checking");
-    const t = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/check-slug?slug=${encodeURIComponent(customSlug)}`);
-        const data: { available: boolean } = await res.json();
-        setSlugStatus(data.available ? "available" : "taken");
-      } catch { setSlugStatus("idle"); }
-    }, 400);
-    return () => clearTimeout(t);
-  }, [customSlug]);
-
-  function reset() {
-    setUrl(""); setCustomSlug(""); setExpiresAt("");
-    setFolderId(""); setNotes(""); setSlugStatus("idle");
-    setShowAdvanced(false);
-  }
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!url.trim() || slugStatus === "taken" || slugStatus === "invalid") return;
-    startTransition(async () => {
-      const res = await createLink(
-        url.trim(),
-        customSlug.trim() || undefined,
-        expiresAt || undefined,
-        folderId || undefined,
-        notes.trim() || undefined,
-      );
-      if (!res.success) { toast.error(res.error); return; }
-      toast.success("Link created!");
-      setOpen(false);
-      reset();
-      router.refresh();
-    });
-  }
-
-  const slugIndicator: Record<SlugStatus, React.ReactNode> = {
-    checking: <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />,
-    available: <Check className="h-4 w-4 text-green-500" />,
-    taken: <X className="h-4 w-4 text-destructive" />,
-    invalid: <AlertCircle className="h-4 w-4 text-destructive" />,
-    idle: null,
-  };
-  const slugHint: Record<SlugStatus, { text: string; cls: string } | null> = {
-    available: { text: "Available!", cls: "text-green-600" },
-    taken: { text: "Already taken", cls: "text-destructive" },
-    invalid: { text: "Letters, numbers, - or _ (2–50 chars)", cls: "text-destructive" },
-    checking: null, idle: null,
-  };
+  const { open, url, customSlug, expiresAt, folderId, notes, password, showPassword, geoRules, slugStatus, showAdvanced } =
+    state;
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
+    <Dialog open={open} onOpenChange={(v) => dispatch({ type: v ? "OPEN" : "CLOSE" })}>
       <DialogTrigger asChild>
         <Button size="sm" className="gap-1.5">
           <Plus className="h-4 w-4" />
           New Link
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg bg-card text-card-foreground shadow">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Scissors className="h-4 w-4" />
@@ -138,7 +86,7 @@ export function AddLinkDialog({ folders }: AddLinkDialogProps) {
                 type="url"
                 placeholder="https://example.com/very/long/url..."
                 value={url}
-                onChange={(e) => setUrl(e.target.value)}
+                onChange={(e) => dispatch({ type: "PATCH", payload: { url: e.target.value } })}
                 disabled={isPending}
                 required
                 autoFocus
@@ -156,7 +104,7 @@ export function AddLinkDialog({ folders }: AddLinkDialogProps) {
           {/* Advanced toggle */}
           <button
             type="button"
-            onClick={() => setShowAdvanced((v) => !v)}
+            onClick={() => dispatch({ type: "PATCH", payload: { showAdvanced: !showAdvanced } })}
             className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             {showAdvanced ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
@@ -177,17 +125,17 @@ export function AddLinkDialog({ folders }: AddLinkDialogProps) {
                     className="flex-1 px-3 h-9 text-sm bg-transparent outline-none placeholder:text-muted-foreground"
                     placeholder="my-link"
                     value={customSlug}
-                    onChange={(e) => setCustomSlug(e.target.value)}
+                    onChange={(e) => dispatch({ type: "PATCH", payload: { customSlug: e.target.value } })}
                     disabled={isPending}
                     autoComplete="off"
                     spellCheck={false}
                   />
-                  {slugIndicator[slugStatus] && (
-                    <span className="pr-3">{slugIndicator[slugStatus]}</span>
+                  {SLUG_INDICATOR[slugStatus] && (
+                    <span className="pr-3">{SLUG_INDICATOR[slugStatus]}</span>
                   )}
                 </div>
-                {slugHint[slugStatus] && (
-                  <p className={`text-xs ${slugHint[slugStatus]!.cls}`}>{slugHint[slugStatus]!.text}</p>
+                {SLUG_HINT[slugStatus] && (
+                  <p className={`text-xs ${SLUG_HINT[slugStatus]!.cls}`}>{SLUG_HINT[slugStatus]!.text}</p>
                 )}
               </div>
 
@@ -195,7 +143,11 @@ export function AddLinkDialog({ folders }: AddLinkDialogProps) {
               {folders.length > 0 && (
                 <div className="space-y-1.5">
                   <Label>Folder</Label>
-                  <Select value={folderId} onValueChange={setFolderId} disabled={isPending}>
+                  <Select
+                    value={folderId}
+                    onValueChange={(v) => dispatch({ type: "PATCH", payload: { folderId: v } })}
+                    disabled={isPending}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="No folder" />
                     </SelectTrigger>
@@ -213,6 +165,32 @@ export function AddLinkDialog({ folders }: AddLinkDialogProps) {
                 </div>
               )}
 
+              {/* Password protection */}
+              <div className="space-y-1.5">
+                <Label htmlFor="al-password">
+                  Password protection{" "}
+                  <span className="text-muted-foreground font-normal">(optional)</span>
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="al-password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Leave blank for public access"
+                    value={password}
+                    onChange={(e) => dispatch({ type: "PATCH", payload: { password: e.target.value } })}
+                    disabled={isPending}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => dispatch({ type: "PATCH", payload: { showPassword: !showPassword } })}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
               {/* Expiration */}
               <div className="space-y-1.5">
                 <Label htmlFor="al-expires">
@@ -223,7 +201,7 @@ export function AddLinkDialog({ folders }: AddLinkDialogProps) {
                   id="al-expires"
                   type="datetime-local"
                   value={expiresAt}
-                  onChange={(e) => setExpiresAt(e.target.value)}
+                  onChange={(e) => dispatch({ type: "PATCH", payload: { expiresAt: e.target.value } })}
                   min={new Date(Date.now() + 60_000).toISOString().slice(0, 16)}
                   disabled={isPending}
                 />
@@ -239,10 +217,16 @@ export function AddLinkDialog({ folders }: AddLinkDialogProps) {
                   id="al-notes"
                   placeholder="Internal notes…"
                   value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
+                  onChange={(e) => dispatch({ type: "PATCH", payload: { notes: e.target.value } })}
                   disabled={isPending}
                 />
               </div>
+
+              {/* Geo redirects */}
+              <GeoRulesInput
+                rules={geoRules}
+                onChange={(rules) => dispatch({ type: "PATCH", payload: { geoRules: rules } })}
+              />
             </div>
           )}
         </form>

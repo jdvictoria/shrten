@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useMemo } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   Table,
@@ -33,10 +34,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Archive,
   ArchiveRestore,
+  CalendarIcon,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Copy,
   ExternalLink,
   LineChart,
@@ -51,6 +57,8 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { format } from "date-fns";
+import { type DateRange } from "react-day-picker";
 import { QRDialog } from "@/components/qr-dialog";
 import { EditLinkDialog } from "@/components/edit-link-dialog";
 import { deleteLink, togglePin, toggleActive, toggleArchive } from "@/lib/actions";
@@ -83,6 +91,9 @@ interface LinksTableProps {
   folders: FolderData[];
   tags: TagData[];
   showArchived?: boolean;
+  page: number;
+  totalPages: number;
+  total: number;
 }
 
 function ExpiryText({ expiresAt }: { expiresAt: Date | null }) {
@@ -100,7 +111,13 @@ export function LinksTable({
   folders,
   tags,
   showArchived = false,
+  page,
+  totalPages,
+  total,
 }: LinksTableProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [pinningId, setPinningId] = useState<string | null>(null);
@@ -112,8 +129,7 @@ export function LinksTable({
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const appUrl = getAppUrl();
 
   function cycleSort(key: SortKey) {
@@ -134,12 +150,11 @@ export function LinksTable({
           (l.notes ?? "").toLowerCase().includes(q)
       );
     }
-    if (dateFrom) {
-      const from = new Date(dateFrom);
-      rows = rows.filter((l) => new Date(l.createdAt) >= from);
+    if (dateRange?.from) {
+      rows = rows.filter((l) => new Date(l.createdAt) >= dateRange.from!);
     }
-    if (dateTo) {
-      const to = new Date(dateTo);
+    if (dateRange?.to) {
+      const to = new Date(dateRange.to);
       to.setHours(23, 59, 59, 999);
       rows = rows.filter((l) => new Date(l.createdAt) <= to);
     }
@@ -155,7 +170,7 @@ export function LinksTable({
       return sortDir === "desc" ? db - da : da - db;
     }
     return [...pinned.sort(cmp), ...unpinned.sort(cmp)];
-  }, [links, search, sortKey, sortDir, dateFrom, dateTo]);
+  }, [links, search, sortKey, sortDir, dateRange]);
 
   async function handleCopy(link: LinkRow) {
     await navigator.clipboard.writeText(`${appUrl}/${link.slug}`);
@@ -221,6 +236,12 @@ export function LinksTable({
     );
   }
 
+  function goToPage(p: number) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", String(p));
+    router.push(`${pathname}?${params.toString()}`);
+  }
+
   const SortBtn = ({ col, label }: { col: SortKey; label: string }) => (
     <button onClick={() => cycleSort(col)} className="flex items-center gap-0.5 hover:text-foreground transition-colors">
       {label}
@@ -274,7 +295,7 @@ export function LinksTable({
     );
   }
 
-  const hasFilters = search || dateFrom || dateTo;
+  const hasFilters = search || dateRange?.from;
 
   return (
     <>
@@ -295,37 +316,81 @@ export function LinksTable({
           <div>
             <CardTitle>{showArchived ? "Archived Links" : "Your Links"}</CardTitle>
             <CardDescription>
-              {filtered.length} of {links.length} link{links.length !== 1 ? "s" : ""}
+              {total} link{total !== 1 ? "s" : ""} · page {page} of {totalPages}
             </CardDescription>
           </div>
 
           {/* Search + date filters */}
-          <div className="flex flex-col sm:flex-row gap-2 mt-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-              <Input
-                placeholder="Search by slug, URL or notes..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-8 h-8 text-sm"
-              />
-              {search && (
-                <button onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-            <div className="flex items-center gap-1 text-sm text-muted-foreground shrink-0">
-              <span className="hidden sm:inline text-xs">From</span>
-              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 text-sm w-36" />
-              <span className="text-xs">–</span>
-              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 text-sm w-36" />
+          <div className="flex flex-col gap-2 mt-2">
+            {/* Row 1: search + calendar icon (always) */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                <Input
+                  placeholder="Search by slug, URL or notes..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-8 h-8 text-sm"
+                />
+                {search && (
+                  <button onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={dateRange?.from ? "secondary" : "outline"}
+                    size="sm"
+                    className="h-8 w-8 p-0 shrink-0 sm:w-auto sm:gap-1.5 sm:px-2.5 sm:text-xs"
+                  >
+                    <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
+                    {dateRange?.from ? (
+                      dateRange.to ? (
+                        <span className="hidden sm:inline">
+                          {format(dateRange.from, "MMM d")} – {format(dateRange.to, "MMM d")}
+                        </span>
+                      ) : (
+                        <span className="hidden sm:inline">From {format(dateRange.from, "MMM d")}</span>
+                      )
+                    ) : (
+                      <span className="hidden sm:inline">Date range</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                    mode="range"
+                    defaultMonth={dateRange?.from}
+                    selected={dateRange}
+                    onSelect={setDateRange}
+                    numberOfMonths={1}
+                    disabled={(date) => date > new Date()}
+                  />
+                </PopoverContent>
+              </Popover>
               {hasFilters && (
-                <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => { setSearch(""); setDateFrom(""); setDateTo(""); }}>
+                <Button variant="ghost" size="sm" className="hidden sm:inline-flex h-8 px-2 text-xs shrink-0" onClick={() => { setSearch(""); setDateRange(undefined); }}>
                   Clear
                 </Button>
               )}
             </div>
+
+            {/* Row 2 (mobile only): active date range + clear, full width */}
+            {dateRange?.from && (
+              <div className="flex items-center gap-2 sm:hidden">
+                <div className="flex-1 h-8 flex items-center rounded-md border border-input bg-secondary px-2.5 text-xs text-secondary-foreground gap-1.5">
+                  <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
+                  {dateRange.to
+                    ? `${format(dateRange.from, "MMM d")} – ${format(dateRange.to, "MMM d")}`
+                    : `From ${format(dateRange.from, "MMM d")}`}
+                </div>
+                <Button variant="ghost" size="sm" className="h-8 px-2 text-xs shrink-0" onClick={() => { setSearch(""); setDateRange(undefined); }}>
+                  Clear
+                </Button>
+              </div>
+            )}
           </div>
         </CardHeader>
 
@@ -528,6 +593,56 @@ export function LinksTable({
                 })}
               </div>
             </TooltipProvider>
+          )}
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4 border-t">
+              <p className="text-xs text-muted-foreground">
+                Page {page} of {totalPages}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  disabled={page <= 1}
+                  onClick={() => goToPage(page - 1)}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                  .reduce<(number | "…")[]>((acc, p, i, arr) => {
+                    if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push("…");
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((p, i) =>
+                    p === "…" ? (
+                      <span key={`ellipsis-${i}`} className="px-1 text-xs text-muted-foreground">…</span>
+                    ) : (
+                      <Button
+                        key={p}
+                        variant={p === page ? "default" : "outline"}
+                        size="sm"
+                        className="h-8 w-8 p-0 text-xs"
+                        onClick={() => goToPage(p as number)}
+                      >
+                        {p}
+                      </Button>
+                    )
+                  )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  disabled={page >= totalPages}
+                  onClick={() => goToPage(page + 1)}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
