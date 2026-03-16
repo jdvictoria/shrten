@@ -17,11 +17,18 @@ export async function Navbar() {
   const session = await auth();
 
   return (
-    <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+    <nav className="border-b border-border/60 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/70 sticky top-0 z-50">
       <div className="container mx-auto px-4 h-14 flex items-center justify-between max-w-6xl">
-        <Link href="/" className="flex items-center gap-2 font-bold text-lg">
-          <Link2 className="h-5 w-5" />
-          shrten
+        <Link
+          href="/"
+          className="flex items-center gap-2 font-bold text-lg group"
+        >
+          <div className="h-7 w-7 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
+            <Link2 className="h-3.5 w-3.5 text-primary" />
+          </div>
+          <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            shrten
+          </span>
         </Link>
 
         <div className="flex items-center gap-2">
@@ -29,16 +36,16 @@ export async function Navbar() {
           {session?.user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-2 h-9">
+                <Button variant="ghost" size="sm" className="gap-2 h-9 rounded-xl">
                   {session.user.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={session.user.image}
                       alt={session.user.name ?? ""}
-                      className="h-6 w-6 rounded-full object-cover"
+                      className="h-6 w-6 rounded-full object-cover ring-2 ring-primary/20"
                     />
                   ) : (
-                    <div className="h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">
+                    <div className="h-6 w-6 rounded-full bg-gradient-to-br from-primary to-accent text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">
                       {(session.user.name ?? session.user.email ?? "?")[0].toUpperCase()}
                     </div>
                   )}
@@ -47,8 +54,8 @@ export async function Navbar() {
                   </span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuLabel className="font-normal">
+              <DropdownMenuContent align="end" className="w-52 rounded-2xl p-1.5">
+                <DropdownMenuLabel className="font-normal px-2 py-1.5">
                   <div className="flex flex-col space-y-0.5">
                     <p className="text-sm font-medium leading-none">{session.user.name}</p>
                     <p className="text-xs leading-none text-muted-foreground truncate">
@@ -56,21 +63,21 @@ export async function Navbar() {
                     </p>
                   </div>
                 </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
+                <DropdownMenuSeparator className="my-1" />
+                <DropdownMenuItem asChild className="rounded-xl">
                   <Link href="/dashboard" className="cursor-pointer">
                     <LayoutDashboard className="h-4 w-4" />
                     Dashboard
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
+                <DropdownMenuItem asChild className="rounded-xl">
                   <Link href="/dashboard/teams" className="cursor-pointer">
                     <Users className="h-4 w-4" />
                     Teams
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
+                <DropdownMenuSeparator className="my-1" />
+                <DropdownMenuItem asChild className="rounded-xl">
                   <form action={signOutAction} className="w-full">
                     <button
                       type="submit"
@@ -84,7 +91,7 @@ export async function Navbar() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Button size="sm" asChild>
+            <Button size="sm" asChild className="rounded-xl">
               <Link href="/sign-in">Get started</Link>
             </Button>
           )}

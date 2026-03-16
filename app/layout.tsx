@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono } from "next/font/google";
+import { Outfit } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { Providers } from "@/components/providers";
 
-const font = JetBrains_Mono({
+const font = Outfit({
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-mono",
+  weight: ["300", "400", "500", "600", "700", "800"],
+  variable: "--font-sans",
 });
 
 export const metadata: Metadata = {

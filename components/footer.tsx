@@ -2,9 +2,9 @@ import { Coffee, Github } from "lucide-react";
 
 export function Footer() {
   return (
-    <footer className="border-t border-border/50 mt-auto py-5">
+    <footer className="border-t border-border/60 mt-auto py-5">
       <div className="container mx-auto px-4 max-w-6xl flex items-center justify-between">
-        <p className="text-xs text-muted-foreground font-mono">
+        <p className="text-xs text-muted-foreground">
           © 2026 jdvictoria. All rights reserved.
         </p>
         <div className="flex items-center gap-3">
@@ -13,7 +13,7 @@ export function Footer() {
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Support on Ko-fi"
-            className="text-[#f5b073] hover:text-[#f5b073]/80 transition-colors"
+            className="text-[#f5b073] hover:text-[#f5b073]/70 transition-colors"
           >
             <Coffee className="h-4 w-4" />
           </a>

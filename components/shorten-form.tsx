@@ -28,7 +28,7 @@ const SLUG_INDICATOR: Record<SlugStatus, React.ReactNode> = {
 };
 
 const SLUG_HINT: Record<SlugStatus, { text: string; cls: string } | null> = {
-  available: { text: "Available!",                            cls: "text-green-600"   },
+  available: { text: "Available!",                            cls: "text-green-600 dark:text-green-400" },
   taken:     { text: "Already taken",                         cls: "text-destructive" },
   invalid:   { text: "Letters, numbers, - or _ (2–50 chars)", cls: "text-destructive" },
   checking:  null,
@@ -44,9 +44,11 @@ export function ShortenForm() {
 
   return (
     <Card className="w-full max-w-2xl">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-xl">
-          <Scissors className="h-5 w-5" />
+      <CardHeader className="pb-4">
+        <CardTitle className="flex items-center gap-2.5 text-xl">
+          <div className="h-8 w-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+            <Scissors className="h-4 w-4 text-primary" />
+          </div>
           Shorten a URL
         </CardTitle>
         <CardDescription>Paste your long URL to get a short, shareable link</CardDescription>
@@ -67,16 +69,16 @@ export function ShortenForm() {
                 onChange={(e) => dispatch({ type: "PATCH", payload: { url: e.target.value } })}
                 required
                 disabled={isPending}
-                className="pr-16"
+                className="pr-16 h-10"
               />
-              <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none hidden sm:inline-flex items-center gap-0.5 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none hidden sm:inline-flex items-center gap-0.5 rounded-lg border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                 ⌘K
               </kbd>
             </div>
             <Button
               type="submit"
               disabled={isPending || slugStatus === "taken" || slugStatus === "invalid"}
-              className="shrink-0"
+              className="shrink-0 h-10 px-5"
             >
               {isPending ? <Loader2 className="animate-spin" /> : "Shorten"}
             </Button>
@@ -86,19 +88,21 @@ export function ShortenForm() {
           <button
             type="button"
             onClick={() => dispatch({ type: "PATCH", payload: { showAdvanced: !showAdvanced } })}
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
           >
-            {showAdvanced ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            <span className="flex items-center justify-center h-4 w-4">
+              {showAdvanced ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            </span>
             Advanced options
           </button>
 
           {showAdvanced && (
-            <div className="space-y-5 pt-2 border-t">
+            <div className="space-y-5 pt-3 border-t border-border/60">
               {/* Custom alias */}
               <div className="space-y-1.5">
                 <Label htmlFor="slug">Custom alias</Label>
-                <div className="flex items-center rounded-md border border-input focus-within:ring-1 focus-within:ring-ring overflow-hidden bg-background">
-                  <span className="px-3 h-9 flex items-center text-sm text-muted-foreground bg-muted border-r whitespace-nowrap shrink-0">
+                <div className="flex items-center rounded-xl border border-input focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-1 focus-within:border-primary/50 overflow-hidden bg-background transition-all duration-200">
+                  <span className="px-3 h-9 flex items-center text-sm text-muted-foreground bg-muted border-r border-input whitespace-nowrap shrink-0">
                     {appDomain}/
                   </span>
                   <input
@@ -142,7 +146,7 @@ export function ShortenForm() {
                   <button
                     type="button"
                     onClick={() => dispatch({ type: "PATCH", payload: { showPassword: !showPassword } })}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -176,9 +180,12 @@ export function ShortenForm() {
 
         {/* Result */}
         {result && (
-          <div data-testid="shorten-result" className="flex items-center gap-2 p-3 bg-muted rounded-lg border">
-            <span className="flex-1 text-sm font-medium truncate">{shortUrl}</span>
-            <Button size="icon" variant="ghost" onClick={handleCopy} className="shrink-0 h-8 w-8">
+          <div
+            data-testid="shorten-result"
+            className="flex items-center gap-2 p-3 bg-primary/6 border border-primary/20 rounded-xl"
+          >
+            <span className="flex-1 text-sm font-medium truncate text-primary">{shortUrl}</span>
+            <Button size="icon" variant="ghost" onClick={handleCopy} className="shrink-0 h-8 w-8 hover:bg-primary/10">
               {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
             </Button>
           </div>
