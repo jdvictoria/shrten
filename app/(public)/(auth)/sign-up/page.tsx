@@ -16,7 +16,7 @@ import { SignUpForm } from "@/components/sign-up-form";
 
 export default function SignUpPage() {
   return (
-    <div className="h-full flex items-center justify-center px-4 py-12">
+    <div className="w-full flex justify-center px-4 py-12">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Create an account</CardTitle>

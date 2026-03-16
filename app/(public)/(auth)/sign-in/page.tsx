@@ -16,8 +16,8 @@ import { CredentialsForm } from "@/components/credentials-form";
 
 export default function SignInPage() {
   return (
-    <div className="h-full flex items-center justify-center px-4 py-12">
-      <Card className="w-full max-w-sm">
+    <div className="w-full flex justify-center px-4 py-12">
+      <Card className="w-full max-w-xl">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Welcome back</CardTitle>
           <CardDescription>Sign in to manage your links</CardDescription>
