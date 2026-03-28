@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LayoutDashboard, Link2, LogOut, Users } from "lucide-react";
+import { LayoutDashboard, LogOut, Users } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { auth } from "@/auth";
 import { Button } from "@/components/ui/button";
@@ -21,14 +21,10 @@ export async function Navbar() {
       <div className="container mx-auto px-4 h-14 flex items-center justify-between max-w-6xl">
         <Link
           href="/"
-          className="flex items-center gap-2 font-bold text-lg group"
+          className="flex items-center tracking-tight text-[1.1rem] leading-none"
         >
-          <div className="h-7 w-7 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
-            <Link2 className="h-3.5 w-3.5 text-primary" />
-          </div>
-          <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            shrten
-          </span>
+          <span className="font-black text-foreground">shrt</span>
+          <span className="font-extralight text-muted-foreground">en</span>
         </Link>
 
         <div className="flex items-center gap-2">

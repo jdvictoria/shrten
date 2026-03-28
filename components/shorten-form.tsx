@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   AlertCircle,
   Check,
@@ -13,7 +13,6 @@ import {
   Eye,
   EyeOff,
   Loader2,
-  Scissors,
   X,
 } from "lucide-react";
 import { GeoRulesInput } from "@/components/geo-rules-input";
@@ -44,17 +43,7 @@ export function ShortenForm() {
 
   return (
     <Card className="w-full max-w-2xl">
-      <CardHeader className="pb-4">
-        <CardTitle className="flex items-center gap-2.5 text-xl">
-          <div className="h-8 w-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-            <Scissors className="h-4 w-4 text-primary" />
-          </div>
-          Shorten a URL
-        </CardTitle>
-        <CardDescription>Paste your long URL to get a short, shareable link</CardDescription>
-      </CardHeader>
-
-      <CardContent className="space-y-4">
+      <CardContent className="pt-6 space-y-4">
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* URL input */}
           <div className="flex gap-2">
@@ -182,11 +171,23 @@ export function ShortenForm() {
         {result && (
           <div
             data-testid="shorten-result"
-            className="flex items-center gap-2 p-3 bg-primary/6 border border-primary/20 rounded-xl"
+            className="flex items-center gap-3 p-3 rounded-xl border border-green-500/25 bg-green-500/5"
           >
-            <span className="flex-1 text-sm font-medium truncate text-primary">{shortUrl}</span>
-            <Button size="icon" variant="ghost" onClick={handleCopy} className="shrink-0 h-8 w-8 hover:bg-primary/10">
-              {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+            <span className="h-1.5 w-1.5 rounded-full bg-green-500 shrink-0" />
+            <span className="flex-1 text-sm font-mono font-medium truncate text-foreground">
+              {shortUrl}
+            </span>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={handleCopy}
+              className="shrink-0 h-8 w-8 rounded-lg hover:bg-green-500/10"
+            >
+              {copied ? (
+                <Check className="h-4 w-4 text-green-500" />
+              ) : (
+                <Copy className="h-4 w-4 text-muted-foreground" />
+              )}
             </Button>
           </div>
         )}

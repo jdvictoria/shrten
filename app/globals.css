@@ -73,22 +73,23 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 
-  /* Light mode — subtle violet radial glow at top */
+  /* Subtle dot grid — intentional texture, not AI decoration */
   body {
     background-image: radial-gradient(
-      ellipse 80% 50% at 50% -10%,
-      hsl(258 82% 58% / 0.06) 0%,
-      transparent 70%
+      circle,
+      hsl(var(--border) / 0.7) 1px,
+      transparent 1px
     );
+    background-size: 24px 24px;
   }
 
-  /* Dark mode — deeper indigo radial glow */
   .dark body {
     background-image: radial-gradient(
-      ellipse 80% 50% at 50% -10%,
-      hsl(258 82% 66% / 0.12) 0%,
-      transparent 70%
+      circle,
+      hsl(var(--border) / 0.5) 1px,
+      transparent 1px
     );
+    background-size: 24px 24px;
   }
 }
 
